@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Defender for Cloud Microsoft Teams notification samples</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #dfe1e6; color: #242424; font-family: "Segoe UI", "Yu Gothic UI", sans-serif; }
+    body { display: grid; gap: 40px; padding: 40px; }
+    body:has(#cwp-teams-sample:target) #cspm-teams-sample { display: none; }
+    body:has(#cspm-teams-sample:target) #cwp-teams-sample { display: none; }
+    .mock { width: 1200px; height: 760px; overflow: hidden; background: #fff; box-shadow: 0 16px 44px rgba(36, 36, 36, .18); }
+    .titlebar { height: 48px; display: grid; grid-template-columns: 280px 1fr 220px; align-items: center; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; }
+    .title-left { display: flex; align-items: center; gap: 16px; padding-left: 18px; color: #616161; font-size: 15px; }
+    .teams-mark { width: 28px; height: 28px; display: grid; place-items: center; background: #5b5fc7; color: #fff; border-radius: 4px; font-size: 17px; font-weight: 700; }
+    .search { justify-self: center; width: 480px; height: 32px; display: flex; align-items: center; padding: 0 14px; background: #fff; border: 1px solid #d1d1d1; border-radius: 4px; color: #616161; font-size: 13px; }
+    .profile { justify-self: end; display: flex; align-items: center; gap: 16px; padding-right: 18px; color: #616161; font-size: 15px; }
+    .profile-dot { width: 30px; height: 30px; display: grid; place-items: center; background: #d83b01; color: #fff; border-radius: 50%; font-size: 12px; font-weight: 700; }
+    .shell { display: grid; grid-template-columns: 72px 250px 1fr; height: 712px; }
+    .rail { background: #ebebeb; border-right: 1px solid #d8d8d8; padding: 12px 0; color: #616161; }
+    .rail-item { height: 62px; display: grid; place-items: center; align-content: center; gap: 3px; border-left: 3px solid transparent; font-size: 10px; }
+    .rail-item .icon { font-size: 21px; line-height: 24px; }
+    .rail-item.active { color: #5b5fc7; background: #ddddeb; border-left-color: #5b5fc7; font-weight: 700; }
+    .sidebar { background: #f7f7f7; border-right: 1px solid #e0e0e0; }
+    .sidebar-title { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 18px; font-weight: 700; }
+    .sidebar-filter { margin: 0 12px 14px; padding: 7px 10px; background: #fff; border: 1px solid #d1d1d1; border-radius: 4px; color: #616161; font-size: 12px; }
+    .team { padding: 8px 14px; font-size: 14px; font-weight: 700; }
+    .team-logo { display: inline-grid; width: 28px; height: 28px; margin-right: 9px; place-items: center; background: #0078d4; color: #fff; border-radius: 4px; }
+    .channel-list { margin-top: 4px; color: #424242; font-size: 14px; line-height: 38px; }
+    .channel-list div { padding-left: 52px; }
+    .channel-list .active { background: #e5e5f1; color: #242424; border-left: 3px solid #5b5fc7; padding-left: 49px; font-weight: 700; }
+    .content { display: grid; grid-template-rows: 64px 45px 1fr 78px; min-width: 0; background: #fff; }
+    .channel-header { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #e5e5e5; }
+    .channel-name { font-size: 18px; font-weight: 700; }
+    .channel-name small { margin-left: 10px; color: #707070; font-size: 12px; font-weight: 400; }
+    .header-actions { color: #5b5fc7; font-size: 13px; }
+    .tabs { display: flex; align-items: end; gap: 28px; padding: 0 24px; border-bottom: 1px solid #e5e5e5; color: #616161; font-size: 13px; }
+    .tab { height: 45px; display: flex; align-items: center; }
+    .tab.active { color: #242424; border-bottom: 3px solid #5b5fc7; font-weight: 700; }
+    .posts { padding: 20px 28px; overflow: hidden; background: #fafafa; }
+    .date { margin-bottom: 14px; color: #707070; font-size: 12px; text-align: center; }
+    .post { width: 740px; margin: 0 auto; padding: 16px 18px 18px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+    .post-meta { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .bot-avatar { width: 36px; height: 36px; display: grid; place-items: center; background: #0078d4; color: #fff; border-radius: 4px; font-size: 18px; font-weight: 700; }
+    .bot-name { font-size: 14px; font-weight: 700; }
+    .bot-name small { display: block; margin-top: 2px; color: #707070; font-size: 11px; font-weight: 400; }
+    .sample-note { color: #858585; font-size: 11px; }
+    .adaptive-card { margin-left: 46px; width: 560px; padding: 20px 22px 18px; border: 1px solid #d6d6d6; border-radius: 2px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .card-kicker { margin-bottom: 13px; color: #424242; font-size: 16px; font-weight: 700; }
+    .card-title { margin-bottom: 7px; font-size: 20px; font-weight: 700; line-height: 1.25; }
+    .card-description { margin-bottom: 16px; color: #424242; font-size: 13px; line-height: 1.45; }
+    .facts { display: grid; grid-template-columns: 168px 1fr; row-gap: 8px; margin-bottom: 16px; font-size: 12.5px; line-height: 1.35; }
+    .fact-title { color: #616161; font-weight: 700; }
+    .fact-value { min-width: 0; overflow-wrap: anywhere; }
+    .severity-high { color: #c4314b; font-weight: 700; }
+    .severity-medium { color: #986f0b; font-weight: 700; }
+    .remediation-title { margin: 3px 0 5px; font-size: 13px; font-weight: 700; }
+    .remediation { margin-bottom: 15px; color: #424242; font-size: 12.5px; line-height: 1.4; }
+    .card-footer { margin-bottom: 14px; color: #707070; font-size: 11px; }
+    .card-button { display: inline-flex; min-width: 184px; height: 34px; align-items: center; justify-content: center; padding: 0 16px; background: #5b5fc7; color: #fff; border-radius: 3px; font-size: 12px; font-weight: 700; }
+    .composer { margin: 10px 28px 16px; padding: 14px 16px; border: 1px solid #c8c8c8; border-radius: 4px; color: #767676; font-size: 13px; }
+    #cspm-teams-sample .post { padding-top: 12px; }
+    #cspm-teams-sample .post-meta { margin-bottom: 8px; }
+    #cspm-teams-sample .adaptive-card { padding-top: 13px; padding-bottom: 12px; }
+    #cspm-teams-sample .card-kicker { margin-bottom: 7px; }
+    #cspm-teams-sample .card-title { margin-bottom: 4px; font-size: 18px; }
+    #cspm-teams-sample .card-description { margin-bottom: 9px; }
+    #cspm-teams-sample .facts { row-gap: 5px; margin-bottom: 9px; }
+    #cspm-teams-sample .remediation-title { margin-top: 0; }
+    #cspm-teams-sample .remediation { margin-bottom: 9px; }
+    #cspm-teams-sample .card-footer { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <section class="mock" id="cwp-teams-sample" aria-label="CWP Microsoft Teams notification sample">
+    <div class="titlebar"><div class="title-left"><span>☷</span><span class="teams-mark">T</span><strong>Microsoft Teams</strong></div><div class="search">⌕　検索</div><div class="profile"><span>⋯</span><span>⚙</span><span class="profile-dot">HN</span></div></div>
+    <div class="shell">
+      <nav class="rail"><div class="rail-item"><span class="icon">●</span>アクティビティ</div><div class="rail-item"><span class="icon">▣</span>チャット</div><div class="rail-item active"><span class="icon">♙</span>Teams</div><div class="rail-item"><span class="icon">▦</span>予定表</div><div class="rail-item"><span class="icon">☏</span>通話</div></nav>
+      <aside class="sidebar"><div class="sidebar-title"><span>Teams</span><span>⋯</span></div><div class="sidebar-filter">チームとチャネルを検索</div><div class="team"><span class="team-logo">S</span>セキュリティ運用</div><div class="channel-list"><div>一般</div><div class="active">mdc-alerts</div><div>incident-response</div></div></aside>
+      <main class="content">
+        <header class="channel-header"><div class="channel-name">mdc-alerts <small>セキュリティ運用</small></div><div class="header-actions">♙　24　　ⓘ</div></header>
+        <div class="tabs"><div class="tab active">投稿</div><div class="tab">ファイル</div><div class="tab">＋</div></div>
+        <div class="posts"><div class="date">2026年7月29日</div><article class="post"><div class="post-meta"><div class="bot-avatar">D</div><div class="bot-name">Microsoft Defender for Cloud<small>Logic Apps　10:42</small></div><div class="sample-note">サンプルデータ</div></div><div class="adaptive-card"><div class="card-kicker">Defender for Cloud セキュリティアラート</div><div class="card-title">Suspicious process executed in a container</div><div class="card-description">コンテナー内で既知の攻撃ツールに関連する不審なプロセスが実行されました。対象ワークロードを調査してください。</div><div class="facts"><div class="fact-title">重要度</div><div class="fact-value severity-high">🔴 High</div><div class="fact-title">検知時刻 (UTC)</div><div class="fact-value">2026-07-29T01:42:18Z</div><div class="fact-title">対象リソース</div><div class="fact-value">aks-prod-nodepool1-29481722-vmss</div><div class="fact-title">サブスクリプション名</div><div class="fact-value">Production-Shared-Services</div></div><div class="card-footer">Microsoft Defender for Cloud | CWP</div><div class="card-button">Defender for Cloud で確認</div></div></article></div>
+        <div class="composer">新しい会話を開始します。投稿するには @メンションを使用できます。</div>
+      </main>
+    </div>
+  </section>
+
+  <section class="mock" id="cspm-teams-sample" aria-label="CSPM Microsoft Teams notification sample">
+    <div class="titlebar"><div class="title-left"><span>☷</span><span class="teams-mark">T</span><strong>Microsoft Teams</strong></div><div class="search">⌕　検索</div><div class="profile"><span>⋯</span><span>⚙</span><span class="profile-dot">HN</span></div></div>
+    <div class="shell">
+      <nav class="rail"><div class="rail-item"><span class="icon">●</span>アクティビティ</div><div class="rail-item"><span class="icon">▣</span>チャット</div><div class="rail-item active"><span class="icon">♙</span>Teams</div><div class="rail-item"><span class="icon">▦</span>予定表</div><div class="rail-item"><span class="icon">☏</span>通話</div></nav>
+      <aside class="sidebar"><div class="sidebar-title"><span>Teams</span><span>⋯</span></div><div class="sidebar-filter">チームとチャネルを検索</div><div class="team"><span class="team-logo">S</span>セキュリティ運用</div><div class="channel-list"><div>一般</div><div class="active">mdc-alerts</div><div>incident-response</div></div></aside>
+      <main class="content">
+        <header class="channel-header"><div class="channel-name">mdc-alerts <small>セキュリティ運用</small></div><div class="header-actions">♙　24　　ⓘ</div></header>
+        <div class="tabs"><div class="tab active">投稿</div><div class="tab">ファイル</div><div class="tab">＋</div></div>
+        <div class="posts"><div class="date">2026年7月29日</div><article class="post"><div class="post-meta"><div class="bot-avatar">D</div><div class="bot-name">Microsoft Defender for Cloud<small>Logic Apps　11:08</small></div><div class="sample-note">サンプルデータ</div></div><div class="adaptive-card"><div class="card-kicker">Defender for Cloud セキュリティ推奨事項</div><div class="card-title">Storage accounts should restrict network access</div><div class="card-description">ストレージ アカウントへのネットワークアクセスがすべてのネットワークから許可されています。</div><div class="facts"><div class="fact-title">重要度</div><div class="fact-value severity-medium">🟡 Medium</div><div class="fact-title">状態変更時刻 (UTC)</div><div class="fact-value">2026-07-29T02:08:44Z</div><div class="fact-title">対象リソース</div><div class="fact-value">stprodauditlogs01</div><div class="fact-title">サブスクリプション名</div><div class="fact-value">Production-Shared-Services</div></div><div class="remediation-title">推奨される対応</div><div class="remediation">選択したネットワークからのアクセスのみを許可するよう、ストレージ アカウントのネットワーク設定を構成してください。</div><div class="card-footer">Microsoft Defender for Cloud | CSPM</div><div class="card-button">Defender for Cloud で確認</div></div></article></div>
+        <div class="composer">新しい会話を開始します。投稿するには @メンションを使用できます。</div>
+      </main>
+    </div>
+  </section>
+</body>
+</html>

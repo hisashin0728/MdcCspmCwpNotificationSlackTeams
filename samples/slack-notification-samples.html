@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Defender for Cloud Slack notification samples</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #dfe3e8; color: #1d1c1d; font-family: "Segoe UI", "Yu Gothic UI", sans-serif; }
+    body { display: grid; gap: 40px; padding: 40px; }
+    .mock { width: 1200px; height: 760px; overflow: hidden; background: #fff; box-shadow: 0 16px 44px rgba(29, 28, 29, .16); }
+    .appbar { height: 40px; display: grid; grid-template-columns: 252px 1fr 180px; align-items: center; background: #350d36; color: #fff; font-size: 13px; }
+    .appbar .history { padding-left: 104px; color: #d9cbd9; font-size: 18px; }
+    .search { justify-self: center; width: 470px; padding: 5px 14px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.16); text-align: center; color: #f7f2f7; }
+    .help { justify-self: end; padding-right: 22px; color: #d9cbd9; }
+    .workspace { display: grid; grid-template-columns: 252px 1fr; height: 720px; }
+    .sidebar { background: #3f0e40; color: #e7dce7; border-top: 1px solid rgba(255,255,255,.12); }
+    .workspace-name { height: 64px; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,.14); font-size: 17px; font-weight: 700; color: #fff; }
+    .workspace-name small { display: block; margin-top: 4px; color: #cdbdcd; font-size: 12px; font-weight: 400; }
+    .nav { padding: 14px 0; font-size: 15px; line-height: 30px; }
+    .nav div { padding: 0 18px; }
+    .nav .label { margin-top: 14px; color: #cdbdcd; font-size: 13px; font-weight: 700; }
+    .nav .active { background: #1164a3; color: #fff; font-weight: 700; }
+    .hash { display: inline-block; width: 24px; color: #cdbdcd; font-size: 17px; }
+    .channel { display: grid; grid-template-rows: 64px 1fr 70px; min-width: 0; }
+    .channel-header { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #ddd; box-shadow: 0 1px 0 rgba(0,0,0,.03); }
+    .channel-title { font-size: 18px; font-weight: 700; }
+    .channel-title small { display: block; margin-top: 4px; color: #616061; font-size: 12px; font-weight: 400; }
+    .members { color: #616061; font-size: 13px; }
+    .messages { padding: 24px 30px; overflow: hidden; }
+    .date-rule { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; color: #616061; font-size: 12px; font-weight: 700; }
+    .date-rule::before, .date-rule::after { content: ""; height: 1px; flex: 1; background: #ddd; }
+    .message { display: grid; grid-template-columns: 40px 1fr; gap: 12px; }
+    .avatar { width: 40px; height: 40px; display: grid; place-items: center; background: #0078d4; color: #fff; font-size: 19px; font-weight: 700; border-radius: 4px; }
+    .meta { margin-bottom: 8px; }
+    .bot-name { font-size: 15px; font-weight: 700; }
+    .app-badge { margin-left: 7px; padding: 2px 5px; background: #e8e8e8; color: #616061; border-radius: 3px; font-size: 10px; font-weight: 700; }
+    .time { margin-left: 7px; color: #616061; font-size: 12px; }
+    .attachment { width: 760px; border-left: 4px solid #36c5f0; padding: 2px 0 2px 16px; }
+    .attachment.severity-high { border-left-color: #e01e5a; }
+    .attachment.severity-medium { border-left-color: #ecb22e; }
+    .severity-dot { margin-right: 5px; }
+    .severity-dot.high { color: #e01e5a; }
+    .severity-dot.medium { color: #c58a00; }
+    .block-header { margin-bottom: 14px; font-size: 20px; font-weight: 800; }
+    .summary { margin-bottom: 15px; max-width: 720px; font-size: 14px; line-height: 1.5; }
+    .summary strong { display: block; margin-bottom: 3px; font-size: 15px; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 32px; margin-bottom: 15px; font-size: 13px; line-height: 1.35; }
+    .field { min-width: 0; }
+    .field strong { display: block; margin-bottom: 2px; }
+    .field code { display: inline-block; max-width: 100%; padding: 1px 4px; background: #f4f4f4; border: 1px solid #ddd; color: #1d1c1d; font-family: Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; white-space: normal; }
+    .remediation { margin-bottom: 14px; max-width: 720px; font-size: 13px; line-height: 1.45; }
+    .remediation strong { display: block; margin-bottom: 3px; }
+    .button { display: inline-block; margin-bottom: 13px; padding: 7px 14px; border: 1px solid #007a5a; color: #007a5a; background: #fff; border-radius: 4px; font-size: 13px; font-weight: 700; }
+    .context { color: #616061; font-size: 12px; }
+    .composer { margin: 8px 28px 18px; padding: 14px; border: 1px solid #aaa; border-radius: 4px; color: #8b8b8b; font-size: 14px; }
+    .sample-note { float: right; color: #868686; font-size: 11px; font-weight: 400; }
+  </style>
+</head>
+<body>
+  <section class="mock" id="cwp-sample" aria-label="CWP Slack notification sample">
+    <div class="appbar"><div class="history">‹　›　◷</div><div class="search">セキュリティ運用 を検索</div><div class="help">？</div></div>
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="workspace-name">セキュリティ運用 <small>● SOC チーム</small></div>
+        <div class="nav">
+          <div>スレッド</div><div>メンション＆リアクション</div><div>保存済みアイテム</div>
+          <div class="label">チャンネル</div><div><span class="hash">#</span>general</div>
+          <div class="active"><span class="hash">#</span>mdc-alerts</div><div><span class="hash">#</span>incident-response</div>
+        </div>
+      </aside>
+      <main class="channel">
+        <header class="channel-header"><div class="channel-title"># mdc-alerts <small>Defender for Cloud のアラートと推奨事項</small></div><div class="members">♙ 24</div></header>
+        <div class="messages">
+          <div class="date-rule">2026年7月29日</div>
+          <article class="message">
+            <div class="avatar">D</div>
+            <div>
+              <div class="meta"><span class="bot-name">Microsoft Defender for Cloud</span><span class="app-badge">アプリ</span><span class="time">10:42</span><span class="sample-note">サンプルデータ</span></div>
+              <div class="attachment severity-high">
+                <div class="block-header">Defender for Cloud セキュリティアラート</div>
+                <div class="summary"><strong>Suspicious process executed in a container</strong>コンテナー内で既知の攻撃ツールに関連する不審なプロセスが実行されました。対象ワークロードを調査してください。</div>
+                <div class="fields">
+                  <div class="field"><strong>重要度</strong><span class="severity-dot high">●</span>High</div>
+                  <div class="field"><strong>検知時刻 (UTC)</strong>2026-07-29T01:42:18Z</div>
+                  <div class="field"><strong>対象リソース</strong>aks-prod-nodepool1-29481722-vmss</div>
+                  <div class="field"><strong>サブスクリプション名</strong>Production-Shared-Services</div>
+                </div>
+                <div class="button">Defender for Cloud で確認</div>
+                <div class="context">Microsoft Defender for Cloud | CWP</div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div class="composer">#mdc-alerts へのメッセージ</div>
+      </main>
+    </div>
+  </section>
+
+  <section class="mock" id="cspm-sample" aria-label="CSPM Slack notification sample">
+    <div class="appbar"><div class="history">‹　›　◷</div><div class="search">セキュリティ運用 を検索</div><div class="help">？</div></div>
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="workspace-name">セキュリティ運用 <small>● SOC チーム</small></div>
+        <div class="nav">
+          <div>スレッド</div><div>メンション＆リアクション</div><div>保存済みアイテム</div>
+          <div class="label">チャンネル</div><div><span class="hash">#</span>general</div>
+          <div class="active"><span class="hash">#</span>mdc-alerts</div><div><span class="hash">#</span>incident-response</div>
+        </div>
+      </aside>
+      <main class="channel">
+        <header class="channel-header"><div class="channel-title"># mdc-alerts <small>Defender for Cloud のアラートと推奨事項</small></div><div class="members">♙ 24</div></header>
+        <div class="messages">
+          <div class="date-rule">2026年7月29日</div>
+          <article class="message">
+            <div class="avatar">D</div>
+            <div>
+              <div class="meta"><span class="bot-name">Microsoft Defender for Cloud</span><span class="app-badge">アプリ</span><span class="time">11:08</span><span class="sample-note">サンプルデータ</span></div>
+              <div class="attachment severity-medium">
+                <div class="block-header">Defender for Cloud セキュリティ推奨事項</div>
+                <div class="summary"><strong>Storage accounts should restrict network access</strong>ストレージ アカウントへのネットワークアクセスがすべてのネットワークから許可されています。</div>
+                <div class="fields">
+                  <div class="field"><strong>重要度</strong><span class="severity-dot medium">●</span>Medium</div>
+                  <div class="field"><strong>状態変更時刻 (UTC)</strong>2026-07-29T02:08:44Z</div>
+                  <div class="field"><strong>対象リソース</strong>stprodauditlogs01</div>
+                  <div class="field"><strong>サブスクリプション名</strong>Production-Shared-Services</div>
+                </div>
+                <div class="remediation"><strong>推奨される対応</strong>選択したネットワークからのアクセスのみを許可するよう、ストレージ アカウントのネットワーク設定を構成してください。</div>
+                <div class="button">Defender for Cloud で確認</div>
+                <div class="context">Microsoft Defender for Cloud | CSPM</div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div class="composer">#mdc-alerts へのメッセージ</div>
+      </main>
+    </div>
+  </section>
+</body>
+</html>
