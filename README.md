@@ -44,31 +44,45 @@ Microsoft Defender for Cloud の Workflow Automation から Logic Apps を起動
 
 ## Slack 複数サブスクリプション版
 
-複数サブスクリプション版は Logic App と Defender for Cloud API 接続だけをデプロイします。Defender for Cloud の Workflow Automation は ARM テンプレートに含まれないため、デプロイ後に各サブスクリプションで手動設定します。Logic Apps の Switch アクションは通知元のサブスクリプション名を判定し、サブスクリプションごとの Slack Incoming Webhook へ通知します。
+複数サブスクリプション版は Logic App と Defender for Cloud API 接続だけをデプロイします。Defender for Cloud の Workflow Automation は ARM テンプレートに含まれないため、デプロイ後に各サブスクリプションで手動設定します。Logic App は通知元の Subscription ID を payload から取得し、System Assigned Managed Identity で Azure Resource Graph に問い合わせてサブスクリプション名へ変換します。Switch アクションは取得したサブスクリプション名だけを判定し、サブスクリプションごとの Slack Incoming Webhook へ通知します。
 
-| CASE | サブスクリプション名 | Subscription ID パラメーター | Webhook URL パラメーター |
+| CASE | サブスクリプション名 | Subscription Name パラメーター | Webhook URL パラメーター |
 | --- | --- | --- | --- |
-| `AzureMgmt` | `ME-MngEnvMCAP780637-AzureMgmt` | `azureMgmtSubscriptionId` | `azureMgmtSlackWebhookUrl` |
-| `AzureVnet` | `ME-MngEnvMCAP780637-AzureVnet` | `azureVnetSubscriptionId` | `azureVnetSlackWebhookUrl` |
+| `AzureMgmt` | `ME-MngEnvMCAP780637-AzureMgmt` | `azureMgmtSubscriptionName` | `azureMgmtSlackWebhookUrl` |
+| `AzureVnet` | `ME-MngEnvMCAP780637-AzureVnet` | `azureVnetSubscriptionName` | `azureVnetSlackWebhookUrl` |
 
-CASE に一致しないサブスクリプションは default 分岐となり、Slack へ通知しません。Webhook URL は `string` パラメーターとして Azure portal のデプロイ画面で入力できます。
+CASE に一致しないサブスクリプションは default 分岐となり、Slack へ通知しません。Azure Resource Graph の問い合わせに失敗した場合も後続の Slack 通知は実行されません。Webhook URL は `string` パラメーターとして Azure portal のデプロイ画面で入力できます。
 
-CWP はアラート payload の `AzureResourceSubscriptionId`（空の場合は `WorkspaceSubscriptionId`）、CSPM は推奨事項 payload の `properties.resourceDetails.id` から取得した Subscription ID を判定に使用します。Logic App のデプロイ先サブスクリプションではなく、通知対象リソースの Subscription ID と CASE を比較します。
+CWP はアラート payload の `AzureResourceSubscriptionId`、`WorkspaceSubscriptionId`、`ExtendedProperties.EffectiveSubscriptionId` の順に Subscription ID を取得します。CSPM は推奨事項 payload の `properties.resourceDetails.id` から Subscription ID を取得します。その ID を対象に Azure Resource Graph の `ResourceContainers` を検索し、返された `name` と CASE を比較します。
 
 ### CWP セキュリティアラート
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cwp-template.json)
 
-2つの Subscription ID と Webhook URL を入力して Logic App をデプロイします。通知対象の重要度は、デプロイ後に Defender for Cloud の Workflow Automation で設定します。
+2つのサブスクリプション名と Webhook URL を入力して Logic App をデプロイします。通知対象の重要度は、デプロイ後に Defender for Cloud の Workflow Automation で設定します。
 
 ### CSPM セキュリティ推奨事項
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cspm-template.json)
 
-2つの Subscription ID と Webhook URL を入力して Logic App をデプロイします。通知対象の推奨事項や状態は、デプロイ後に Defender for Cloud の Workflow Automation で設定します。
+2つのサブスクリプション名と Webhook URL を入力して Logic App をデプロイします。通知対象の推奨事項や状態は、デプロイ後に Defender for Cloud の Workflow Automation で設定します。
 
 > [!NOTE]
-> テンプレートは `subscription().displayName` を CASE 判定に使用します。各対象サブスクリプションへテンプレートをデプロイし、そのサブスクリプションの Workflow Automation からデプロイした Logic App を選択してください。
+> デプロイ後、Logic App の System Assigned Managed Identity に、通知元となる各サブスクリプションの `Reader` ロールを付与してください。権限がないサブスクリプションは Azure Resource Graph の結果に含まれません。
+
+### Azure Resource Graph の RBAC を設定
+
+テンプレートの出力 `alertLogicAppPrincipalId` または `recommendationLogicAppPrincipalId` で Managed Identity の principal ID を確認できます。各 Logic App に対して、通知元となる両方のサブスクリプションで次のコマンドを実行します。
+
+```azurecli
+az role assignment create \
+  --assignee-object-id <LOGIC_APP_PRINCIPAL_ID> \
+  --assignee-principal-type ServicePrincipal \
+  --role Reader \
+  --scope /subscriptions/<SOURCE_SUBSCRIPTION_ID>
+```
+
+`Reader` は対象サブスクリプション内のリソースを参照できる広い権限です。Logic App とリソースグループの変更権限、およびロール割り当てを実行できる権限を必要最小限の担当者に限定してください。
 
 ### Workflow Automation を手動設定
 
@@ -94,6 +108,7 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 - 対象サブスクリプションで必要な Microsoft Defender for Cloud プランが有効であること
 - リソースグループへ Logic App と API 接続を作成できる権限
 - Defender for Cloud の Workflow Automation を作成できる権限
+- 複数サブスクリプション版: Logic App の Managed Identity へ通知元サブスクリプションの `Reader` ロールを割り当てられる権限
 - Slack: Slack アプリで発行した Incoming Webhook URL
 - Microsoft Teams: 対象チーム/チャネルへ投稿できる Microsoft 365 アカウント、Team ID、Channel ID
 
@@ -119,12 +134,12 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 
 | パラメーター | 必須 | 説明 |
 | --- | --- | --- |
-| `azureMgmtSubscriptionId` | はい | `ME-MngEnvMCAP780637-AzureMgmt` の Subscription ID。発生元判定に使用します。 |
-| `azureVnetSubscriptionId` | はい | `ME-MngEnvMCAP780637-AzureVnet` の Subscription ID。発生元判定に使用します。 |
+| `azureMgmtSubscriptionName` | いいえ | AzureMgmt CASE に一致させるサブスクリプション名。既定値は `ME-MngEnvMCAP780637-AzureMgmt` です。 |
+| `azureVnetSubscriptionName` | いいえ | AzureVnet CASE に一致させるサブスクリプション名。既定値は `ME-MngEnvMCAP780637-AzureVnet` です。 |
 | `azureMgmtSlackWebhookUrl` | はい | `ME-MngEnvMCAP780637-AzureMgmt` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 | `azureVnetSlackWebhookUrl` | はい | `ME-MngEnvMCAP780637-AzureVnet` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 
-複数サブスクリプション版の Logic App は、通知イベントのサブスクリプション名を Switch で評価します。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートの string parameter と Switch の case を追加してください。
+複数サブスクリプション版の Logic App は、Azure Resource Graph から取得したサブスクリプション名を Switch で評価します。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートの string parameter と Switch の case を追加してください。
 
 Webhook URL は、対応する `multi-subscription-*-template.parameters.json` の `azureMgmtSlackWebhookUrl` と `azureVnetSlackWebhookUrl` の `value` を編集して設定できます。`string` の値はデプロイ履歴やリソース定義を閲覧できるユーザーから参照される可能性があるため、リソースグループと Logic App の RBAC を必要最小限に制限してください。
 
@@ -197,19 +212,19 @@ az deployment group create `
   --parameters slackWebhookUrl=$slackWebhookUrl
 ```
 
-複数サブスクリプション版では、専用パラメーターファイルのプレースホルダーを各通知先の Webhook URL に変更してからデプロイできます。コマンド実行時に上書きする場合は次のように指定します。
+複数サブスクリプション版では、専用パラメーターファイルのプレースホルダーを各通知先の Webhook URL に変更してからデプロイできます。サブスクリプション名は既定値を使用できます。コマンド実行時に上書きする場合は次のように指定します。
 
 ```powershell
 $azureMgmtSlackWebhookUrl = Read-Host 'AzureMgmt Slack Incoming Webhook URL'
 $azureVnetSlackWebhookUrl = Read-Host 'AzureVnet Slack Incoming Webhook URL'
-$azureMgmtSubscriptionId = '<AZURE_MGMT_SUBSCRIPTION_ID>'
-$azureVnetSubscriptionId = '<AZURE_VNET_SUBSCRIPTION_ID>'
+$azureMgmtSubscriptionName = 'ME-MngEnvMCAP780637-AzureMgmt'
+$azureVnetSubscriptionName = 'ME-MngEnvMCAP780637-AzureVnet'
 
 az deployment group create `
   --resource-group $resourceGroup `
   --template-file .\multi-subscription-cwp-template.json `
   --parameters .\multi-subscription-cwp-template.parameters.json `
-  --parameters azureMgmtSubscriptionId=$azureMgmtSubscriptionId azureVnetSubscriptionId=$azureVnetSubscriptionId `
+  --parameters azureMgmtSubscriptionName=$azureMgmtSubscriptionName azureVnetSubscriptionName=$azureVnetSubscriptionName `
     azureMgmtSlackWebhookUrl=$azureMgmtSlackWebhookUrl azureVnetSlackWebhookUrl=$azureVnetSlackWebhookUrl
 ```
 

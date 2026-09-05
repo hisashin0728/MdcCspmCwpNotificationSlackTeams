@@ -22,16 +22,18 @@
         "description": "Prefix used for deployed resource names."
       }
     },
-    "azureMgmtSubscriptionId": {
+    "azureMgmtSubscriptionName": {
       "type": "string",
+      "defaultValue": "ME-MngEnvMCAP780637-AzureMgmt",
       "metadata": {
-        "description": "Subscription ID for ME-MngEnvMCAP780637-AzureMgmt."
+        "description": "Subscription name routed to the AzureMgmt Slack channel."
       }
     },
-    "azureVnetSubscriptionId": {
+    "azureVnetSubscriptionName": {
       "type": "string",
+      "defaultValue": "ME-MngEnvMCAP780637-AzureVnet",
       "metadata": {
-        "description": "Subscription ID for ME-MngEnvMCAP780637-AzureVnet."
+        "description": "Subscription name routed to the AzureVnet Slack channel."
       }
     },
     "azureMgmtSlackWebhookUrl": {
@@ -83,6 +85,9 @@
       "name": "[variables('recommendationWorkflowName')]",
       "location": "[parameters('location')]",
       "tags": "[union(parameters('tags'), createObject('LogicAppsCategory', 'security'))]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "properties": {
         "state": "Enabled",
         "definition": {
@@ -99,10 +104,10 @@
             "azureVnetSlackWebhookUrl": {
               "type": "String"
             },
-            "azureMgmtSubscriptionId": {
+            "azureMgmtSubscriptionName": {
               "type": "String"
             },
-            "azureVnetSubscriptionId": {
+            "azureVnetSubscriptionName": {
               "type": "String"
             }
           },
@@ -123,6 +128,39 @@
             }
           },
           "actions": {
+            "Compose_Source_Subscription_Id": {
+              "type": "Compose",
+              "inputs": "@{if(empty(triggerBody()?['properties']?['resourceDetails']?['id']), 'unknown', first(split(replace(replace(toLower(triggerBody()?['properties']?['resourceDetails']?['id']), '/subscriptions/', ''), 'subscriptions/', ''), '/')))}",
+              "runAfter": {}
+            },
+            "Query_Subscription_Name": {
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+                "headers": {
+                  "Content-Type": "application/json"
+                },
+                "authentication": {
+                  "type": "ManagedServiceIdentity",
+                  "audience": "https://management.azure.com/"
+                },
+                "body": {
+                  "subscriptions": [
+                    "@{outputs('Compose_Source_Subscription_Id')}"
+                  ],
+                  "query": "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | project subscriptionId, name | limit 1",
+                  "options": {
+                    "resultFormat": "objectArray"
+                  }
+                }
+              },
+              "runAfter": {
+                "Compose_Source_Subscription_Id": [
+                  "Succeeded"
+                ]
+              }
+            },
             "Compose_Recommendation_Details": {
               "type": "Compose",
               "inputs": {
@@ -130,8 +168,8 @@
                 "description": "@{coalesce(triggerBody()?['properties']?['metadata']?['description'], '説明はありません。')}",
                 "resourceId": "@{coalesce(triggerBody()?['properties']?['resourceDetails']?['id'], '不明')}",
                 "resourceName": "@{if(empty(triggerBody()?['properties']?['resourceDetails']?['id']), '不明', last(split(triggerBody()?['properties']?['resourceDetails']?['id'], '/')))}",
-                "sourceSubscriptionId": "@{if(empty(triggerBody()?['properties']?['resourceDetails']?['id']), 'unknown', first(split(replace(replace(toLower(triggerBody()?['properties']?['resourceDetails']?['id']), '/subscriptions/', ''), 'subscriptions/', ''), '/')))}",
-                "subscriptionName": "@{if(equals(if(empty(triggerBody()?['properties']?['resourceDetails']?['id']), 'unknown', first(split(replace(replace(toLower(triggerBody()?['properties']?['resourceDetails']?['id']), '/subscriptions/', ''), 'subscriptions/', ''), '/'))), toLower(parameters('azureMgmtSubscriptionId'))), 'ME-MngEnvMCAP780637-AzureMgmt', if(equals(if(empty(triggerBody()?['properties']?['resourceDetails']?['id']), 'unknown', first(split(replace(replace(toLower(triggerBody()?['properties']?['resourceDetails']?['id']), '/subscriptions/', ''), 'subscriptions/', ''), '/'))), toLower(parameters('azureVnetSubscriptionId'))), 'ME-MngEnvMCAP780637-AzureVnet', '不明'))}",
+                "sourceSubscriptionId": "@{outputs('Compose_Source_Subscription_Id')}",
+                "subscriptionName": "@{if(empty(body('Query_Subscription_Name')?['data']), '不明', body('Query_Subscription_Name')?['data']?[0]?['name'])}",
                 "severity": "@{coalesce(triggerBody()?['properties']?['metadata']?['severity'], '不明')}",
                 "severityColor": "@{if(equals(toLower(coalesce(triggerBody()?['properties']?['metadata']?['severity'], '')), 'high'), '#E01E5A', if(equals(toLower(coalesce(triggerBody()?['properties']?['metadata']?['severity'], '')), 'medium'), '#ECB22E', '#36C5F0'))}",
                 "severityIndicator": "@{if(equals(toLower(coalesce(triggerBody()?['properties']?['metadata']?['severity'], '')), 'high'), '🔴', if(equals(toLower(coalesce(triggerBody()?['properties']?['metadata']?['severity'], '')), 'medium'), '🟡', '🔵'))}",
@@ -139,7 +177,11 @@
                 "remediation": "@{coalesce(triggerBody()?['properties']?['metadata']?['remediationDescription'], 'Defender for Cloud で修復手順を確認してください。')}",
                 "portalUrl": "@{if(empty(triggerBody()?['properties']?['links']?['azurePortalUri']), 'https://portal.azure.com/#view/Microsoft_Azure_Security/SecurityMenuBlade/~/5', concat('https://', triggerBody()?['properties']?['links']?['azurePortalUri']))}"
               },
-              "runAfter": {}
+              "runAfter": {
+                "Query_Subscription_Name": [
+                  "Succeeded"
+                ]
+              }
             },
             "Compose_Slack_Message": {
               "type": "Compose",
@@ -227,7 +269,7 @@
             },
             "Route_Recommendation_By_Subscription": {
               "type": "Switch",
-              "expression": "@if(equals(outputs('Compose_Recommendation_Details')?['sourceSubscriptionId'], toLower(parameters('azureMgmtSubscriptionId'))), 'AzureMgmt', if(equals(outputs('Compose_Recommendation_Details')?['sourceSubscriptionId'], toLower(parameters('azureVnetSubscriptionId'))), 'AzureVnet', 'Unknown'))",
+              "expression": "@if(equals(toLower(outputs('Compose_Recommendation_Details')?['subscriptionName']), toLower(parameters('azureMgmtSubscriptionName'))), 'AzureMgmt', if(equals(toLower(outputs('Compose_Recommendation_Details')?['subscriptionName']), toLower(parameters('azureVnetSubscriptionName'))), 'AzureVnet', 'Unknown'))",
               "cases": {
                 "AzureMgmt": {
                   "case": "AzureMgmt",
@@ -290,11 +332,11 @@
           "azureVnetSlackWebhookUrl": {
             "value": "[parameters('azureVnetSlackWebhookUrl')]"
           },
-          "azureMgmtSubscriptionId": {
-            "value": "[parameters('azureMgmtSubscriptionId')]"
+          "azureMgmtSubscriptionName": {
+            "value": "[parameters('azureMgmtSubscriptionName')]"
           },
-          "azureVnetSubscriptionId": {
-            "value": "[parameters('azureVnetSubscriptionId')]"
+          "azureVnetSubscriptionName": {
+            "value": "[parameters('azureVnetSubscriptionName')]"
           }
         }
       },
@@ -307,6 +349,10 @@
     "recommendationLogicAppName": {
       "type": "string",
       "value": "[variables('recommendationWorkflowName')]"
+    },
+    "recommendationLogicAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Logic/workflows', variables('recommendationWorkflowName')), '2019-05-01', 'Full').identity.principalId]"
     }
   }
 }

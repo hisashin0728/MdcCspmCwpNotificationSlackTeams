@@ -23,16 +23,18 @@
         "description": "Prefix used for deployed resource names."
       }
     },
-    "azureMgmtSubscriptionId": {
+    "azureMgmtSubscriptionName": {
       "type": "string",
+      "defaultValue": "ME-MngEnvMCAP780637-AzureMgmt",
       "metadata": {
-        "description": "Subscription ID for ME-MngEnvMCAP780637-AzureMgmt."
+        "description": "Subscription name routed to the AzureMgmt Slack channel."
       }
     },
-    "azureVnetSubscriptionId": {
+    "azureVnetSubscriptionName": {
       "type": "string",
+      "defaultValue": "ME-MngEnvMCAP780637-AzureVnet",
       "metadata": {
-        "description": "Subscription ID for ME-MngEnvMCAP780637-AzureVnet."
+        "description": "Subscription name routed to the AzureVnet Slack channel."
       }
     },
     "azureMgmtSlackWebhookUrl": {
@@ -84,6 +86,9 @@
       "name": "[variables('alertWorkflowName')]",
       "location": "[parameters('location')]",
       "tags": "[union(parameters('tags'), createObject('LogicAppsCategory', 'security'))]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "properties": {
         "state": "Enabled",
         "definition": {
@@ -100,10 +105,10 @@
             "azureVnetSlackWebhookUrl": {
               "type": "String"
             },
-            "azureMgmtSubscriptionId": {
+            "azureMgmtSubscriptionName": {
               "type": "String"
             },
-            "azureVnetSubscriptionId": {
+            "azureVnetSubscriptionName": {
               "type": "String"
             }
           },
@@ -124,21 +129,58 @@
             }
           },
           "actions": {
+            "Compose_Source_Subscription_Id": {
+              "type": "Compose",
+              "inputs": "@{toLower(coalesce(triggerBody()?['AzureResourceSubscriptionId'], triggerBody()?['WorkspaceSubscriptionId'], triggerBody()?['ExtendedProperties']?['EffectiveSubscriptionId'], 'unknown'))}",
+              "runAfter": {}
+            },
+            "Query_Subscription_Name": {
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+                "headers": {
+                  "Content-Type": "application/json"
+                },
+                "authentication": {
+                  "type": "ManagedServiceIdentity",
+                  "audience": "https://management.azure.com/"
+                },
+                "body": {
+                  "subscriptions": [
+                    "@{outputs('Compose_Source_Subscription_Id')}"
+                  ],
+                  "query": "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | project subscriptionId, name | limit 1",
+                  "options": {
+                    "resultFormat": "objectArray"
+                  }
+                }
+              },
+              "runAfter": {
+                "Compose_Source_Subscription_Id": [
+                  "Succeeded"
+                ]
+              }
+            },
             "Compose_Alert_Details": {
               "type": "Compose",
               "inputs": {
                 "alertName": "@{coalesce(triggerBody()?['AlertDisplayName'], '(名前なし)')}",
                 "resourceName": "@{coalesce(triggerBody()?['CompromisedEntity'], triggerBody()?['ExtendedProperties']?['resourceName'], triggerBody()?['ExtendedProperties']?['EffectiveAzureResourceId'], '不明')}",
                 "description": "@{coalesce(triggerBody()?['Description'], '説明はありません。')}",
-                "sourceSubscriptionId": "@{toLower(if(empty(triggerBody()?['AzureResourceSubscriptionId']), coalesce(triggerBody()?['WorkspaceSubscriptionId'], 'unknown'), triggerBody()?['AzureResourceSubscriptionId']))}",
-                "subscriptionName": "@{if(equals(toLower(if(empty(triggerBody()?['AzureResourceSubscriptionId']), coalesce(triggerBody()?['WorkspaceSubscriptionId'], ''), triggerBody()?['AzureResourceSubscriptionId'])), toLower(parameters('azureMgmtSubscriptionId'))), 'ME-MngEnvMCAP780637-AzureMgmt', if(equals(toLower(if(empty(triggerBody()?['AzureResourceSubscriptionId']), coalesce(triggerBody()?['WorkspaceSubscriptionId'], ''), triggerBody()?['AzureResourceSubscriptionId'])), toLower(parameters('azureVnetSubscriptionId'))), 'ME-MngEnvMCAP780637-AzureVnet', coalesce(triggerBody()?['AzureResourceSubscriptionId'], triggerBody()?['WorkspaceSubscriptionId'], '不明')))}",
+                "sourceSubscriptionId": "@{outputs('Compose_Source_Subscription_Id')}",
+                "subscriptionName": "@{if(empty(body('Query_Subscription_Name')?['data']), '不明', body('Query_Subscription_Name')?['data']?[0]?['name'])}",
                 "severity": "@{coalesce(triggerBody()?['Severity'], '不明')}",
                 "severityColor": "@{if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'high'), '#E01E5A', if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'medium'), '#ECB22E', '#36C5F0'))}",
                 "severityIndicator": "@{if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'high'), '🔴', if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'medium'), '🟡', '🔵'))}",
                 "detectedAt": "@{coalesce(triggerBody()?['StartTimeUtc'], triggerBody()?['TimeGenerated'], utcNow())}",
                 "portalUrl": "@{coalesce(triggerBody()?['AlertUri'], 'https://portal.azure.com/#view/Microsoft_Azure_Security/SecurityMenuBlade/~/7')}"
               },
-              "runAfter": {}
+              "runAfter": {
+                "Query_Subscription_Name": [
+                  "Succeeded"
+                ]
+              }
             },
             "Compose_Slack_Message": {
               "type": "Compose",
@@ -219,7 +261,7 @@
             },
             "Route_Alert_By_Subscription": {
               "type": "Switch",
-              "expression": "@if(equals(outputs('Compose_Alert_Details')?['sourceSubscriptionId'], toLower(parameters('azureMgmtSubscriptionId'))), 'AzureMgmt', if(equals(outputs('Compose_Alert_Details')?['sourceSubscriptionId'], toLower(parameters('azureVnetSubscriptionId'))), 'AzureVnet', 'Unknown'))",
+              "expression": "@if(equals(toLower(outputs('Compose_Alert_Details')?['subscriptionName']), toLower(parameters('azureMgmtSubscriptionName'))), 'AzureMgmt', if(equals(toLower(outputs('Compose_Alert_Details')?['subscriptionName']), toLower(parameters('azureVnetSubscriptionName'))), 'AzureVnet', 'Unknown'))",
               "cases": {
                 "AzureMgmt": {
                   "case": "AzureMgmt",
@@ -282,11 +324,11 @@
           "azureVnetSlackWebhookUrl": {
             "value": "[parameters('azureVnetSlackWebhookUrl')]"
           },
-          "azureMgmtSubscriptionId": {
-            "value": "[parameters('azureMgmtSubscriptionId')]"
+          "azureMgmtSubscriptionName": {
+            "value": "[parameters('azureMgmtSubscriptionName')]"
           },
-          "azureVnetSubscriptionId": {
-            "value": "[parameters('azureVnetSubscriptionId')]"
+          "azureVnetSubscriptionName": {
+            "value": "[parameters('azureVnetSubscriptionName')]"
           }
         }
       },
@@ -299,6 +341,10 @@
     "alertLogicAppName": {
       "type": "string",
       "value": "[variables('alertWorkflowName')]"
+    },
+    "alertLogicAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Logic/workflows', variables('alertWorkflowName')), '2019-05-01', 'Full').identity.principalId]"
     }
   }
 }

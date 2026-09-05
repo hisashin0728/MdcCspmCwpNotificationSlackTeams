@@ -5,11 +5,11 @@
     "namePrefix": {
       "value": "mdc-slack-multi"
     },
-    "azureMgmtSubscriptionId": {
-      "value": "<AZURE_MGMT_SUBSCRIPTION_ID>"
+    "azureMgmtSubscriptionName": {
+      "value": "ME-MngEnvMCAP780637-AzureMgmt"
     },
-    "azureVnetSubscriptionId": {
-      "value": "<AZURE_VNET_SUBSCRIPTION_ID>"
+    "azureVnetSubscriptionName": {
+      "value": "ME-MngEnvMCAP780637-AzureVnet"
     },
     "azureMgmtSlackWebhookUrl": {
       "value": "<AZURE_MGMT_CWP_SLACK_WEBHOOK_URL>"
