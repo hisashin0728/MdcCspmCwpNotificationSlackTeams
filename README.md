@@ -4,6 +4,7 @@ Microsoft Defender for Cloud の Workflow Automation から Logic Apps を起動
 
 - Slack: Incoming Webhook を使用した Block Kit 通知
 - Slack 複数サブスクリプション版: サブスクリプション名による Logic Apps の Switch/Case でチャネルを振り分け
+- Slack 複数サブスクリプション版では Workflow Automation を作成せず、デプロイ後に Defender for Cloud で手動設定
 - Microsoft Teams: 標準 Teams コネクタを使用した Adaptive Card 通知
 - CWP: 通知するアラート重要度を選択可能
 - CSPM: すべて、または指定した Assessment ID の unhealthy な推奨事項を通知
@@ -33,8 +34,8 @@ Microsoft Defender for Cloud の Workflow Automation から Logic Apps を起動
 | --- | --- | --- | --- | --- |
 | Slack | CWP セキュリティアラート | `alertSeverities` で指定した重要度 | [cwp-template.json](cwp-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fcwp-template.json) |
 | Slack | CSPM セキュリティ推奨事項 | unhealthy、必要に応じて Assessment ID を指定 | [cspm-template.json](cspm-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fcspm-template.json) |
-| Slack（サブスクリプション別） | CWP セキュリティアラート | `alertSeverities` で指定した重要度 | [multi-subscription-cwp-template.json](multi-subscription-cwp-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cwp-template.json) |
-| Slack（サブスクリプション別） | CSPM セキュリティ推奨事項 | unhealthy、必要に応じて Assessment ID を指定 | [multi-subscription-cspm-template.json](multi-subscription-cspm-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cspm-template.json) |
+| Slack（サブスクリプション別） | CWP セキュリティアラート | Workflow Automation で手動設定 | [multi-subscription-cwp-template.json](multi-subscription-cwp-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cwp-template.json) |
+| Slack（サブスクリプション別） | CSPM セキュリティ推奨事項 | Workflow Automation で手動設定 | [multi-subscription-cspm-template.json](multi-subscription-cspm-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cspm-template.json) |
 | Microsoft Teams | CWP セキュリティアラート | `alertSeverities` で指定した重要度 | [teams-cwp-template.json](teams-cwp-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fteams-cwp-template.json) |
 | Microsoft Teams | CSPM セキュリティ推奨事項 | unhealthy、必要に応じて Assessment ID を指定 | [teams-cspm-template.json](teams-cspm-template.json) | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fteams-cspm-template.json) |
 
@@ -43,37 +44,48 @@ Microsoft Defender for Cloud の Workflow Automation から Logic Apps を起動
 
 ## Slack 複数サブスクリプション版
 
-複数サブスクリプション版は、Logic Apps の Switch アクションで通知元のサブスクリプション名を判定し、サブスクリプションごとの Slack Incoming Webhook へ通知します。現在は次の2つの CASE を定義しています。
+複数サブスクリプション版は Logic App と Defender for Cloud API 接続だけをデプロイします。Defender for Cloud の Workflow Automation は ARM テンプレートに含まれないため、デプロイ後に各サブスクリプションで手動設定します。Logic Apps の Switch アクションは通知元のサブスクリプション名を判定し、サブスクリプションごとの Slack Incoming Webhook へ通知します。
 
-| CASE | サブスクリプション名 | Webhook URL パラメーター |
-| --- | --- | --- |
-| `AzureMgmt` | `ME-MngEnvMCAP780637-AzureMgmt` | `azureMgmtSlackWebhookUrl` |
-| `AzureVnet` | `ME-MngEnvMCAP780637-AzureVnet` | `azureVnetSlackWebhookUrl` |
+| CASE | サブスクリプション名 | Subscription ID パラメーター | Webhook URL パラメーター |
+| --- | --- | --- | --- |
+| `AzureMgmt` | `ME-MngEnvMCAP780637-AzureMgmt` | `azureMgmtSubscriptionId` | `azureMgmtSlackWebhookUrl` |
+| `AzureVnet` | `ME-MngEnvMCAP780637-AzureVnet` | `azureVnetSubscriptionId` | `azureVnetSlackWebhookUrl` |
 
 CASE に一致しないサブスクリプションは default 分岐となり、Slack へ通知しません。Webhook URL は `string` パラメーターとして Azure portal のデプロイ画面で入力できます。
+
+CWP はアラート payload の `AzureResourceSubscriptionId`（空の場合は `WorkspaceSubscriptionId`）、CSPM は推奨事項 payload の `properties.resourceDetails.id` から取得した Subscription ID を判定に使用します。Logic App のデプロイ先サブスクリプションではなく、通知対象リソースの Subscription ID と CASE を比較します。
 
 ### CWP セキュリティアラート
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cwp-template.json)
 
-`alertSeverities` で通知対象の重要度を選択し、2つの Webhook URL を入力してデプロイします。
+2つの Subscription ID と Webhook URL を入力して Logic App をデプロイします。通知対象の重要度は、デプロイ後に Defender for Cloud の Workflow Automation で設定します。
 
 ### CSPM セキュリティ推奨事項
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhisashin0728%2FMdcCspmCwpNotificationSlackTeams%2Fmain%2Fmulti-subscription-cspm-template.json)
 
-必要に応じて `recommendationIds` で通知対象を指定し、2つの Webhook URL を入力してデプロイします。空配列の場合は、すべての unhealthy な推奨事項が対象です。
+2つの Subscription ID と Webhook URL を入力して Logic App をデプロイします。通知対象の推奨事項や状態は、デプロイ後に Defender for Cloud の Workflow Automation で設定します。
 
 > [!NOTE]
-> Workflow Automation のスコープはデプロイ先サブスクリプションです。両サブスクリプションのイベントを受け取るには、それぞれのサブスクリプションで対象テンプレートをデプロイしてください。リソース名の競合を避けるため、サブスクリプションごとに異なるリソースグループへデプロイするか、必要に応じて `namePrefix` を変更してください。
+> テンプレートは `subscription().displayName` を CASE 判定に使用します。各対象サブスクリプションへテンプレートをデプロイし、そのサブスクリプションの Workflow Automation からデプロイした Logic App を選択してください。
+
+### Workflow Automation を手動設定
+
+1. Azure portal で対象サブスクリプションの Microsoft Defender for Cloud を開きます。
+2. 「ワークフローの自動化」から新しい Automation を作成します。
+3. CWP は Security alert、CSPM は Security recommendation をイベントソースとして選択します。
+4. 重要度、推奨事項、状態などの通知条件と対象スコープを設定します。
+5. アクションに Logic App を指定し、同じサブスクリプションへデプロイした `<namePrefix>-cwp-alert` または `<namePrefix>-cspm-recommendation` を選択します。
+6. Automation を有効化して保存します。
 
 ## デプロイされるリソース
 
-| リソース | Slack | Microsoft Teams | 用途 |
-| --- | ---: | ---: | --- |
-| `Microsoft.Logic/workflows` | 1 | 1 | 通知ワークフロー |
-| `Microsoft.Web/connections` | 1 | 2 | Defender for Cloud トリガー、Teams コネクタ |
-| `Microsoft.Security/automations` | 1 | 1 | Defender for Cloud Workflow Automation |
+| リソース | Slack | Slack 複数版 | Microsoft Teams | 用途 |
+| --- | ---: | ---: | ---: | --- |
+| `Microsoft.Logic/workflows` | 1 | 1 | 1 | 通知ワークフロー |
+| `Microsoft.Web/connections` | 1 | 1 | 2 | Defender for Cloud トリガー、Teams コネクタ |
+| `Microsoft.Security/automations` | 1 | 0 | 1 | Defender for Cloud Workflow Automation。複数版は手動作成 |
 
 Teams テンプレートでは Defender for Cloud と Microsoft Teams の API 接続を1つずつ作成します。
 
@@ -107,6 +119,8 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 
 | パラメーター | 必須 | 説明 |
 | --- | --- | --- |
+| `azureMgmtSubscriptionId` | はい | `ME-MngEnvMCAP780637-AzureMgmt` の Subscription ID。発生元判定に使用します。 |
+| `azureVnetSubscriptionId` | はい | `ME-MngEnvMCAP780637-AzureVnet` の Subscription ID。発生元判定に使用します。 |
 | `azureMgmtSlackWebhookUrl` | はい | `ME-MngEnvMCAP780637-AzureMgmt` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 | `azureVnetSlackWebhookUrl` | はい | `ME-MngEnvMCAP780637-AzureVnet` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 
@@ -114,7 +128,7 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 
 Webhook URL は、対応する `multi-subscription-*-template.parameters.json` の `azureMgmtSlackWebhookUrl` と `azureVnetSlackWebhookUrl` の `value` を編集して設定できます。`string` の値はデプロイ履歴やリソース定義を閲覧できるユーザーから参照される可能性があるため、リソースグループと Logic App の RBAC を必要最小限に制限してください。
 
-Workflow Automation の監視範囲はデプロイ先サブスクリプションです。両サブスクリプションを監視するには、それぞれのサブスクリプションへテンプレートをデプロイしてください。
+複数サブスクリプション版の Workflow Automation はテンプレートに含まれません。各対象サブスクリプションへテンプレートをデプロイした後、同じサブスクリプションで手動作成してください。
 
 ### Microsoft Teams
 
@@ -188,12 +202,15 @@ az deployment group create `
 ```powershell
 $azureMgmtSlackWebhookUrl = Read-Host 'AzureMgmt Slack Incoming Webhook URL'
 $azureVnetSlackWebhookUrl = Read-Host 'AzureVnet Slack Incoming Webhook URL'
+$azureMgmtSubscriptionId = '<AZURE_MGMT_SUBSCRIPTION_ID>'
+$azureVnetSubscriptionId = '<AZURE_VNET_SUBSCRIPTION_ID>'
 
 az deployment group create `
   --resource-group $resourceGroup `
   --template-file .\multi-subscription-cwp-template.json `
   --parameters .\multi-subscription-cwp-template.parameters.json `
-  --parameters azureMgmtSlackWebhookUrl=$azureMgmtSlackWebhookUrl azureVnetSlackWebhookUrl=$azureVnetSlackWebhookUrl
+  --parameters azureMgmtSubscriptionId=$azureMgmtSubscriptionId azureVnetSubscriptionId=$azureVnetSubscriptionId `
+    azureMgmtSlackWebhookUrl=$azureMgmtSlackWebhookUrl azureVnetSlackWebhookUrl=$azureVnetSlackWebhookUrl
 ```
 
 ## 動作確認

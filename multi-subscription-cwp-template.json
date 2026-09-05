@@ -4,14 +4,14 @@
   "contentVersion": "1.0.0.0",
   "metadata": {
     "title": "Defender for Cloud CWP alerts to Slack by subscription",
-    "description": "Deploys a Defender for Cloud alert workflow automation and a Logic App that routes Block Kit messages to Slack by subscription."
+    "description": "Deploys a Logic App that routes Defender for Cloud alert Block Kit messages to Slack by subscription. Defender for Cloud workflow automation must be configured separately."
   },
   "parameters": {
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Deployment region for the Logic Apps, API connections, and workflow automations."
+        "description": "Deployment region for the Logic App and API connection."
       }
     },
     "namePrefix": {
@@ -21,6 +21,18 @@
       "maxLength": 40,
       "metadata": {
         "description": "Prefix used for deployed resource names."
+      }
+    },
+    "azureMgmtSubscriptionId": {
+      "type": "string",
+      "metadata": {
+        "description": "Subscription ID for ME-MngEnvMCAP780637-AzureMgmt."
+      }
+    },
+    "azureVnetSubscriptionId": {
+      "type": "string",
+      "metadata": {
+        "description": "Subscription ID for ME-MngEnvMCAP780637-AzureVnet."
       }
     },
     "azureMgmtSlackWebhookUrl": {
@@ -33,17 +45,6 @@
       "type": "string",
       "metadata": {
         "description": "Slack Incoming Webhook URL for the ME-MngEnvMCAP780637-AzureVnet CWP channel."
-      }
-    },
-    "alertSeverities": {
-      "type": "array",
-      "defaultValue": [
-        "High",
-        "Medium",
-        "Low"
-      ],
-      "metadata": {
-        "description": "Defender for Cloud alert severities to notify. Valid values are High, Medium, and Low."
       }
     },
     "tags": {
@@ -60,7 +61,6 @@
   "variables": {
     "alertWorkflowName": "[format('{0}-cwp-alert', parameters('namePrefix'))]",
     "alertConnectionName": "[format('{0}-ascalert', parameters('namePrefix'))]",
-    "alertAutomationName": "[format('{0}-alert-automation', parameters('namePrefix'))]",
     "alertTriggerName": "When_a_Microsoft_Defender_for_Cloud_Alert_is_created_or_triggered"
   },
   "resources": [
@@ -100,7 +100,10 @@
             "azureVnetSlackWebhookUrl": {
               "type": "String"
             },
-            "subscriptionName": {
+            "azureMgmtSubscriptionId": {
+              "type": "String"
+            },
+            "azureVnetSubscriptionId": {
               "type": "String"
             }
           },
@@ -127,7 +130,8 @@
                 "alertName": "@{coalesce(triggerBody()?['AlertDisplayName'], '(名前なし)')}",
                 "resourceName": "@{coalesce(triggerBody()?['CompromisedEntity'], triggerBody()?['ExtendedProperties']?['resourceName'], triggerBody()?['ExtendedProperties']?['EffectiveAzureResourceId'], '不明')}",
                 "description": "@{coalesce(triggerBody()?['Description'], '説明はありません。')}",
-                "subscriptionName": "@parameters('subscriptionName')",
+                "sourceSubscriptionId": "@{toLower(if(empty(triggerBody()?['AzureResourceSubscriptionId']), coalesce(triggerBody()?['WorkspaceSubscriptionId'], 'unknown'), triggerBody()?['AzureResourceSubscriptionId']))}",
+                "subscriptionName": "@{if(equals(toLower(if(empty(triggerBody()?['AzureResourceSubscriptionId']), coalesce(triggerBody()?['WorkspaceSubscriptionId'], ''), triggerBody()?['AzureResourceSubscriptionId'])), toLower(parameters('azureMgmtSubscriptionId'))), 'ME-MngEnvMCAP780637-AzureMgmt', if(equals(toLower(if(empty(triggerBody()?['AzureResourceSubscriptionId']), coalesce(triggerBody()?['WorkspaceSubscriptionId'], ''), triggerBody()?['AzureResourceSubscriptionId'])), toLower(parameters('azureVnetSubscriptionId'))), 'ME-MngEnvMCAP780637-AzureVnet', coalesce(triggerBody()?['AzureResourceSubscriptionId'], triggerBody()?['WorkspaceSubscriptionId'], '不明')))}",
                 "severity": "@{coalesce(triggerBody()?['Severity'], '不明')}",
                 "severityColor": "@{if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'high'), '#E01E5A', if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'medium'), '#ECB22E', '#36C5F0'))}",
                 "severityIndicator": "@{if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'high'), '🔴', if(equals(toLower(coalesce(triggerBody()?['Severity'], '')), 'medium'), '🟡', '🔵'))}",
@@ -215,10 +219,10 @@
             },
             "Route_Alert_By_Subscription": {
               "type": "Switch",
-              "expression": "@outputs('Compose_Alert_Details')?['subscriptionName']",
+              "expression": "@if(equals(outputs('Compose_Alert_Details')?['sourceSubscriptionId'], toLower(parameters('azureMgmtSubscriptionId'))), 'AzureMgmt', if(equals(outputs('Compose_Alert_Details')?['sourceSubscriptionId'], toLower(parameters('azureVnetSubscriptionId'))), 'AzureVnet', 'Unknown'))",
               "cases": {
                 "AzureMgmt": {
-                  "case": "ME-MngEnvMCAP780637-AzureMgmt",
+                  "case": "AzureMgmt",
                   "actions": {
                     "Post_Alert_to_AzureMgmt_Slack": {
                       "type": "Http",
@@ -234,7 +238,7 @@
                   }
                 },
                 "AzureVnet": {
-                  "case": "ME-MngEnvMCAP780637-AzureVnet",
+                  "case": "AzureVnet",
                   "actions": {
                     "Post_Alert_to_AzureVnet_Slack": {
                       "type": "Http",
@@ -278,61 +282,16 @@
           "azureVnetSlackWebhookUrl": {
             "value": "[parameters('azureVnetSlackWebhookUrl')]"
           },
-          "subscriptionName": {
-            "value": "[subscription().displayName]"
+          "azureMgmtSubscriptionId": {
+            "value": "[parameters('azureMgmtSubscriptionId')]"
+          },
+          "azureVnetSubscriptionId": {
+            "value": "[parameters('azureVnetSubscriptionId')]"
           }
         }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/connections', variables('alertConnectionName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Security/automations",
-      "apiVersion": "2023-12-01-preview",
-      "name": "[variables('alertAutomationName')]",
-      "location": "[parameters('location')]",
-      "tags": "[parameters('tags')]",
-      "properties": {
-        "description": "Send Defender for Cloud workload protection alerts to Slack.",
-        "isEnabled": true,
-        "scopes": [
-          {
-            "description": "[format('All resources in subscription {0}', subscription().subscriptionId)]",
-            "scopePath": "[subscription().id]"
-          }
-        ],
-        "sources": [
-          {
-            "copy": [
-              {
-                "name": "ruleSets",
-                "count": "[length(parameters('alertSeverities'))]",
-                "input": {
-                  "rules": [
-                    {
-                      "propertyJPath": "Severity",
-                      "propertyType": "String",
-                      "expectedValue": "[parameters('alertSeverities')[copyIndex('ruleSets')]]",
-                      "operator": "Equals"
-                    }
-                  ]
-                }
-              }
-            ],
-            "eventSource": "Alerts"
-          }
-        ],
-        "actions": [
-          {
-            "actionType": "LogicApp",
-            "logicAppResourceId": "[resourceId('Microsoft.Logic/workflows', variables('alertWorkflowName'))]",
-            "uri": "[listCallbackUrl(format('{0}/triggers/{1}', resourceId('Microsoft.Logic/workflows', variables('alertWorkflowName')), variables('alertTriggerName')), '2016-06-01').value]"
-          }
-        ]
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Logic/workflows', variables('alertWorkflowName'))]"
       ]
     }
   ],
@@ -340,10 +299,6 @@
     "alertLogicAppName": {
       "type": "string",
       "value": "[variables('alertWorkflowName')]"
-    },
-    "alertAutomationResourceId": {
-      "type": "string",
-      "value": "[resourceId('Microsoft.Security/automations', variables('alertAutomationName'))]"
     }
   }
 }
