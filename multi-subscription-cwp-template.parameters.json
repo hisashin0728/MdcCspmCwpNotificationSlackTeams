@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "mdc-slack-multi"
+    },
+    "azureMgmtSlackWebhookUrl": {
+      "value": "<AZURE_MGMT_CWP_SLACK_WEBHOOK_URL>"
+    },
+    "azureVnetSlackWebhookUrl": {
+      "value": "<AZURE_VNET_CWP_SLACK_WEBHOOK_URL>"
+    },
+    "alertSeverities": {
+      "value": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    }
+  }
+}
