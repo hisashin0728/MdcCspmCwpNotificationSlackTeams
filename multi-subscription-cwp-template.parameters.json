@@ -5,17 +5,17 @@
     "namePrefix": {
       "value": "mdc-slack-multi"
     },
-    "azureMgmtSubscriptionName": {
-      "value": "ME-MngEnvMCAP780637-AzureMgmt"
+    "subscription1Name": {
+      "value": "<SUBSCRIPTION_1_NAME>"
     },
-    "azureVnetSubscriptionName": {
-      "value": "ME-MngEnvMCAP780637-AzureVnet"
+    "subscription2Name": {
+      "value": "<SUBSCRIPTION_2_NAME>"
     },
-    "azureMgmtSlackWebhookUrl": {
-      "value": "<AZURE_MGMT_CWP_SLACK_WEBHOOK_URL>"
+    "subscription1SlackWebhookUrl": {
+      "value": "<SUBSCRIPTION_1_CWP_SLACK_WEBHOOK_URL>"
     },
-    "azureVnetSlackWebhookUrl": {
-      "value": "<AZURE_VNET_CWP_SLACK_WEBHOOK_URL>"
+    "subscription2SlackWebhookUrl": {
+      "value": "<SUBSCRIPTION_2_CWP_SLACK_WEBHOOK_URL>"
     }
   }
 }

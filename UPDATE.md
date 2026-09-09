@@ -4,10 +4,10 @@
 # Slack側の環境
 - Slack 側は通知する channel を各サブスクリプション毎に cspm / cwpp 分作成している
 - 各チャネルのイメージ
-    #sub-azuremgmt-cspm
-    #sub-azuremgmt-cwpp
-    #sub-azurevnet-cspm
-    #sub-azurevnet-cwpp
+  #sub-subscription1-cspm
+  #sub-subscription1-cwpp
+  #sub-subscription2-cspm
+  #sub-subscription2-cwpp
 - Incoming Webhook はSlackアプリを用いて、各チャネル用に払い出し済み
 
 # ロジックアプリのイメージ
@@ -17,15 +17,15 @@
 # 現環境
 admin@azurecsa.net
 CSPM用
- - subscription : ME-MngEnvMCAP780637-AzureMgmt
-  - Incoming Webhook URL : <AzureMgmt CSPM channel webhook URL>
- - subscription : ME-MngEnvMCAP780637-AzureVnet
-  - Incoming Webhook URL : <AzureVnet CSPM channel webhook URL>
+ - subscription : <SUBSCRIPTION_1_NAME>
+  - Incoming Webhook URL : <SUBSCRIPTION_1_CSPM_SLACK_WEBHOOK_URL>
+ - subscription : <SUBSCRIPTION_2_NAME>
+  - Incoming Webhook URL : <SUBSCRIPTION_2_CSPM_SLACK_WEBHOOK_URL>
 
 CWPP用(URLは同一だが、テストのため)
- - subscription : ME-MngEnvMCAP780637-AzureMgmt
-  - Incoming Webhook URL : <AzureMgmt CWP channel webhook URL>
- - subscription : ME-MngEnvMCAP780637-AzureVnet
-  - Incoming Webhook URL : <AzureVnet CWP channel webhook URL>
+ - subscription : <SUBSCRIPTION_1_NAME>
+  - Incoming Webhook URL : <SUBSCRIPTION_1_CWP_SLACK_WEBHOOK_URL>
+ - subscription : <SUBSCRIPTION_2_NAME>
+  - Incoming Webhook URL : <SUBSCRIPTION_2_CWP_SLACK_WEBHOOK_URL>
 
 > 複数サブスクリプション版では編集性を優先して Webhook URL を string パラメーターとして扱う。デプロイ履歴、リソースグループ、Logic App を参照できる RBAC ロールを必要最小限に制限する。

@@ -46,10 +46,10 @@ Microsoft Defender for Cloud の Workflow Automation から Logic Apps を起動
 
 複数サブスクリプション版は Logic App と Defender for Cloud API 接続だけをデプロイします。Defender for Cloud の Workflow Automation は ARM テンプレートに含まれないため、デプロイ後に各サブスクリプションで手動設定します。Logic App は通知元の Subscription ID を payload から取得し、System Assigned Managed Identity で Azure Resource Graph に問い合わせてサブスクリプション名へ変換します。Switch アクションは取得したサブスクリプション名だけを判定し、サブスクリプションごとの Slack Incoming Webhook へ通知します。
 
-| CASE | サブスクリプション名 | Subscription Name パラメーター | Webhook URL パラメーター |
-| --- | --- | --- | --- |
-| `AzureMgmt` | `ME-MngEnvMCAP780637-AzureMgmt` | `azureMgmtSubscriptionName` | `azureMgmtSlackWebhookUrl` |
-| `AzureVnet` | `ME-MngEnvMCAP780637-AzureVnet` | `azureVnetSubscriptionName` | `azureVnetSlackWebhookUrl` |
+| CASE | Subscription Name パラメーター | Webhook URL パラメーター |
+| --- | --- | --- |
+| `Subscription1` | `subscription1Name` | `subscription1SlackWebhookUrl` |
+| `Subscription2` | `subscription2Name` | `subscription2SlackWebhookUrl` |
 
 CASE に一致しないサブスクリプションは default 分岐となり、Slack へ通知しません。Azure Resource Graph の問い合わせに失敗した場合も後続の Slack 通知は実行されません。Webhook URL は `string` パラメーターとして Azure portal のデプロイ画面で入力できます。
 
@@ -134,14 +134,14 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 
 | パラメーター | 必須 | 説明 |
 | --- | --- | --- |
-| `azureMgmtSubscriptionName` | いいえ | AzureMgmt CASE に一致させるサブスクリプション名。既定値は `ME-MngEnvMCAP780637-AzureMgmt` です。 |
-| `azureVnetSubscriptionName` | いいえ | AzureVnet CASE に一致させるサブスクリプション名。既定値は `ME-MngEnvMCAP780637-AzureVnet` です。 |
-| `azureMgmtSlackWebhookUrl` | はい | `ME-MngEnvMCAP780637-AzureMgmt` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
-| `azureVnetSlackWebhookUrl` | はい | `ME-MngEnvMCAP780637-AzureVnet` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
+| `subscription1Name` | はい | Subscription1 CASE に一致させるサブスクリプション名。 |
+| `subscription2Name` | はい | Subscription2 CASE に一致させるサブスクリプション名。 |
+| `subscription1SlackWebhookUrl` | はい | `subscription1Name` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
+| `subscription2SlackWebhookUrl` | はい | `subscription2Name` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 
-複数サブスクリプション版の Logic App は、Azure Resource Graph から取得したサブスクリプション名を Switch で評価します。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートの string parameter と Switch の case を追加してください。
+複数サブスクリプション版の Logic App は、Azure Resource Graph から取得したサブスクリプション名を小文字化し、`subscriptionRoutes` マップを使って Switch の CASE を決定します。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートのサブスクリプション名と Webhook URL パラメーター、`subscriptionRoutes` の要素、Switch の CASE を1組追加してください。
 
-Webhook URL は、対応する `multi-subscription-*-template.parameters.json` の `azureMgmtSlackWebhookUrl` と `azureVnetSlackWebhookUrl` の `value` を編集して設定できます。`string` の値はデプロイ履歴やリソース定義を閲覧できるユーザーから参照される可能性があるため、リソースグループと Logic App の RBAC を必要最小限に制限してください。
+Webhook URL は、対応する `multi-subscription-*-template.parameters.json` の `subscription1SlackWebhookUrl` と `subscription2SlackWebhookUrl` の `value` を編集して設定できます。`string` の値はデプロイ履歴やリソース定義を閲覧できるユーザーから参照される可能性があるため、リソースグループと Logic App の RBAC を必要最小限に制限してください。
 
 複数サブスクリプション版の Workflow Automation はテンプレートに含まれません。各対象サブスクリプションへテンプレートをデプロイした後、同じサブスクリプションで手動作成してください。
 
@@ -215,17 +215,17 @@ az deployment group create `
 複数サブスクリプション版では、専用パラメーターファイルのプレースホルダーを各通知先の Webhook URL に変更してからデプロイできます。サブスクリプション名は既定値を使用できます。コマンド実行時に上書きする場合は次のように指定します。
 
 ```powershell
-$azureMgmtSlackWebhookUrl = Read-Host 'AzureMgmt Slack Incoming Webhook URL'
-$azureVnetSlackWebhookUrl = Read-Host 'AzureVnet Slack Incoming Webhook URL'
-$azureMgmtSubscriptionName = 'ME-MngEnvMCAP780637-AzureMgmt'
-$azureVnetSubscriptionName = 'ME-MngEnvMCAP780637-AzureVnet'
+$subscription1SlackWebhookUrl = Read-Host 'Subscription 1 Slack Incoming Webhook URL'
+$subscription2SlackWebhookUrl = Read-Host 'Subscription 2 Slack Incoming Webhook URL'
+$subscription1Name = '<SUBSCRIPTION_1_NAME>'
+$subscription2Name = '<SUBSCRIPTION_2_NAME>'
 
 az deployment group create `
   --resource-group $resourceGroup `
   --template-file .\multi-subscription-cwp-template.json `
   --parameters .\multi-subscription-cwp-template.parameters.json `
-  --parameters azureMgmtSubscriptionName=$azureMgmtSubscriptionName azureVnetSubscriptionName=$azureVnetSubscriptionName `
-    azureMgmtSlackWebhookUrl=$azureMgmtSlackWebhookUrl azureVnetSlackWebhookUrl=$azureVnetSlackWebhookUrl
+  --parameters subscription1Name=$subscription1Name subscription2Name=$subscription2Name `
+    subscription1SlackWebhookUrl=$subscription1SlackWebhookUrl subscription2SlackWebhookUrl=$subscription2SlackWebhookUrl
 ```
 
 ## 動作確認
