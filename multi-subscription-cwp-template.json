@@ -259,7 +259,7 @@
             },
             "Route_Alert_By_Subscription": {
               "type": "Switch",
-              "expression": "@if(equals(toLower(outputs('Compose_Alert_Details')?['subscriptionName']), toLower(parameters('subscription1Name'))), parameters('subscription1Name'), if(equals(toLower(outputs('Compose_Alert_Details')?['subscriptionName']), toLower(parameters('subscription2Name'))), parameters('subscription2Name'), 'Unknown'))",
+              "expression": "@outputs('Compose_Alert_Details')?['subscriptionName']",
               "cases": {
                 "Subscription1": {
                   "case": "@parameters('subscription1Name')",
