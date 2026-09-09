@@ -60,7 +60,39 @@
   "variables": {
     "recommendationWorkflowName": "[format('{0}-cspm-recommendation', parameters('namePrefix'))]",
     "recommendationConnectionName": "[format('{0}-ascassessment', parameters('namePrefix'))]",
-    "recommendationTriggerName": "When_a_Microsoft_Defender_for_Cloud_recommendation_is_created_or_triggered"
+    "recommendationTriggerName": "When_a_Microsoft_Defender_for_Cloud_recommendation_is_created_or_triggered",
+    "subscription1RecommendationCase": {
+      "case": "[parameters('subscription1Name')]",
+      "actions": {
+        "Post_Recommendation_to_Subscription1_Slack": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@parameters('subscription1SlackWebhookUrl')",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": "@outputs('Compose_Slack_Message')"
+          }
+        }
+      }
+    },
+    "subscription2RecommendationCase": {
+      "case": "[parameters('subscription2Name')]",
+      "actions": {
+        "Post_Recommendation_to_Subscription2_Slack": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@parameters('subscription2SlackWebhookUrl')",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": "@outputs('Compose_Slack_Message')"
+          }
+        }
+      }
+    }
   },
   "resources": [
     {
@@ -95,12 +127,6 @@
             "$connections": {
               "type": "Object",
               "defaultValue": {}
-            },
-            "subscription1Name": {
-              "type": "String"
-            },
-            "subscription2Name": {
-              "type": "String"
             },
             "subscription1SlackWebhookUrl": {
               "type": "String"
@@ -268,40 +294,7 @@
             "Route_Recommendation_By_Subscription": {
               "type": "Switch",
               "expression": "@outputs('Compose_Recommendation_Details')?['subscriptionName']",
-              "cases": {
-                "Subscription1": {
-                  "case": "@parameters('subscription1Name')",
-                  "actions": {
-                    "Post_Recommendation_to_Subscription1_Slack": {
-                      "type": "Http",
-                      "inputs": {
-                        "method": "POST",
-                        "uri": "@parameters('subscription1SlackWebhookUrl')",
-                        "headers": {
-                          "Content-Type": "application/json"
-                        },
-                        "body": "@outputs('Compose_Slack_Message')"
-                      }
-                    }
-                  }
-                },
-                "Subscription2": {
-                  "case": "@parameters('subscription2Name')",
-                  "actions": {
-                    "Post_Recommendation_to_Subscription2_Slack": {
-                      "type": "Http",
-                      "inputs": {
-                        "method": "POST",
-                        "uri": "@parameters('subscription2SlackWebhookUrl')",
-                        "headers": {
-                          "Content-Type": "application/json"
-                        },
-                        "body": "@outputs('Compose_Slack_Message')"
-                      }
-                    }
-                  }
-                }
-              },
+              "cases": "[createObject(parameters('subscription1Name'), variables('subscription1RecommendationCase'), parameters('subscription2Name'), variables('subscription2RecommendationCase'))]",
               "default": {
                 "actions": {}
               },
@@ -323,12 +316,6 @@
                 "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'ascassessment')]"
               }
             }
-          },
-          "subscription1Name": {
-            "value": "[parameters('subscription1Name')]"
-          },
-          "subscription2Name": {
-            "value": "[parameters('subscription2Name')]"
           },
           "subscription1SlackWebhookUrl": {
             "value": "[parameters('subscription1SlackWebhookUrl')]"

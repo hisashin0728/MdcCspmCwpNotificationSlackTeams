@@ -61,7 +61,39 @@
   "variables": {
     "alertWorkflowName": "[format('{0}-cwp-alert', parameters('namePrefix'))]",
     "alertConnectionName": "[format('{0}-ascalert', parameters('namePrefix'))]",
-    "alertTriggerName": "When_a_Microsoft_Defender_for_Cloud_Alert_is_created_or_triggered"
+    "alertTriggerName": "When_a_Microsoft_Defender_for_Cloud_Alert_is_created_or_triggered",
+    "subscription1AlertCase": {
+      "case": "[parameters('subscription1Name')]",
+      "actions": {
+        "Post_Alert_to_Subscription1_Slack": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@parameters('subscription1SlackWebhookUrl')",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": "@outputs('Compose_Slack_Message')"
+          }
+        }
+      }
+    },
+    "subscription2AlertCase": {
+      "case": "[parameters('subscription2Name')]",
+      "actions": {
+        "Post_Alert_to_Subscription2_Slack": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@parameters('subscription2SlackWebhookUrl')",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": "@outputs('Compose_Slack_Message')"
+          }
+        }
+      }
+    }
   },
   "resources": [
     {
@@ -96,12 +128,6 @@
             "$connections": {
               "type": "Object",
               "defaultValue": {}
-            },
-            "subscription1Name": {
-              "type": "String"
-            },
-            "subscription2Name": {
-              "type": "String"
             },
             "subscription1SlackWebhookUrl": {
               "type": "String"
@@ -260,40 +286,7 @@
             "Route_Alert_By_Subscription": {
               "type": "Switch",
               "expression": "@outputs('Compose_Alert_Details')?['subscriptionName']",
-              "cases": {
-                "Subscription1": {
-                  "case": "@parameters('subscription1Name')",
-                  "actions": {
-                    "Post_Alert_to_Subscription1_Slack": {
-                      "type": "Http",
-                      "inputs": {
-                        "method": "POST",
-                        "uri": "@parameters('subscription1SlackWebhookUrl')",
-                        "headers": {
-                          "Content-Type": "application/json"
-                        },
-                        "body": "@outputs('Compose_Slack_Message')"
-                      }
-                    }
-                  }
-                },
-                "Subscription2": {
-                  "case": "@parameters('subscription2Name')",
-                  "actions": {
-                    "Post_Alert_to_Subscription2_Slack": {
-                      "type": "Http",
-                      "inputs": {
-                        "method": "POST",
-                        "uri": "@parameters('subscription2SlackWebhookUrl')",
-                        "headers": {
-                          "Content-Type": "application/json"
-                        },
-                        "body": "@outputs('Compose_Slack_Message')"
-                      }
-                    }
-                  }
-                }
-              },
+              "cases": "[createObject(parameters('subscription1Name'), variables('subscription1AlertCase'), parameters('subscription2Name'), variables('subscription2AlertCase'))]",
               "default": {
                 "actions": {}
               },
@@ -315,12 +308,6 @@
                 "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'ascalert')]"
               }
             }
-          },
-          "subscription1Name": {
-            "value": "[parameters('subscription1Name')]"
-          },
-          "subscription2Name": {
-            "value": "[parameters('subscription2Name')]"
           },
           "subscription1SlackWebhookUrl": {
             "value": "[parameters('subscription1SlackWebhookUrl')]"

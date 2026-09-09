@@ -139,7 +139,7 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 | `subscription1SlackWebhookUrl` | はい | `subscription1Name` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 | `subscription2SlackWebhookUrl` | はい | `subscription2Name` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 
-複数サブスクリプション版の Logic App は、Azure Resource Graph から取得したサブスクリプション名を Switch の条件へ直接設定し、`subscription1Name` と `subscription2Name` の実値を各 CASE に設定します。名前は完全一致で照合されます。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートと Logic App 定義のサブスクリプション名および Webhook URL パラメーターと CASE を1組追加してください。
+複数サブスクリプション版の Logic App は、Azure Resource Graph から取得したサブスクリプション名を Switch の条件へ直接設定します。各 CASE の名前と判定値は、`subscription1Name` と `subscription2Name` に入力した実際のサブスクリプション名からデプロイ時に生成され、完全一致で照合されます。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートのサブスクリプション名および Webhook URL パラメーターと CASE 変数を1組追加してください。
 
 Webhook URL は、対応する `multi-subscription-*-template.parameters.json` の `subscription1SlackWebhookUrl` と `subscription2SlackWebhookUrl` の `value` を編集して設定できます。`string` の値はデプロイ履歴やリソース定義を閲覧できるユーザーから参照される可能性があるため、リソースグループと Logic App の RBAC を必要最小限に制限してください。
 
