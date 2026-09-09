@@ -46,10 +46,10 @@ Microsoft Defender for Cloud の Workflow Automation から Logic Apps を起動
 
 複数サブスクリプション版は Logic App と Defender for Cloud API 接続だけをデプロイします。Defender for Cloud の Workflow Automation は ARM テンプレートに含まれないため、デプロイ後に各サブスクリプションで手動設定します。Logic App は通知元の Subscription ID を payload から取得し、System Assigned Managed Identity で Azure Resource Graph に問い合わせてサブスクリプション名へ変換します。Switch アクションは取得したサブスクリプション名だけを判定し、サブスクリプションごとの Slack Incoming Webhook へ通知します。
 
-| CASE | Subscription Name パラメーター | Webhook URL パラメーター |
+| CASE に表示される値 | Subscription Name パラメーター | Webhook URL パラメーター |
 | --- | --- | --- |
-| `Subscription1` | `subscription1Name` | `subscription1SlackWebhookUrl` |
-| `Subscription2` | `subscription2Name` | `subscription2SlackWebhookUrl` |
+| `subscription1Name` に入力したサブスクリプション名 | `subscription1Name` | `subscription1SlackWebhookUrl` |
+| `subscription2Name` に入力したサブスクリプション名 | `subscription2Name` | `subscription2SlackWebhookUrl` |
 
 CASE に一致しないサブスクリプションは default 分岐となり、Slack へ通知しません。Azure Resource Graph の問い合わせに失敗した場合も後続の Slack 通知は実行されません。Webhook URL は `string` パラメーターとして Azure portal のデプロイ画面で入力できます。
 
@@ -134,12 +134,12 @@ Teams テンプレートでは Defender for Cloud と Microsoft Teams の API �
 
 | パラメーター | 必須 | 説明 |
 | --- | --- | --- |
-| `subscription1Name` | はい | Subscription1 CASE に一致させるサブスクリプション名。 |
-| `subscription2Name` | はい | Subscription2 CASE に一致させるサブスクリプション名。 |
+| `subscription1Name` | はい | 1つ目の CASE に直接設定するサブスクリプション名。 |
+| `subscription2Name` | はい | 2つ目の CASE に直接設定するサブスクリプション名。 |
 | `subscription1SlackWebhookUrl` | はい | `subscription1Name` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 | `subscription2SlackWebhookUrl` | はい | `subscription2Name` 用 Slack Incoming Webhook URL。ARM の `string` として扱われます。 |
 
-複数サブスクリプション版の Logic App は、Azure Resource Graph から取得したサブスクリプション名を小文字化し、`subscriptionRoutes` マップを使って Switch の CASE を決定します。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートのサブスクリプション名と Webhook URL パラメーター、`subscriptionRoutes` の要素、Switch の CASE を1組追加してください。
+複数サブスクリプション版の Logic App は、`subscription1Name` と `subscription2Name` の実値を Switch の CASE に直接設定します。Azure Resource Graph から取得した名前とは大文字小文字を区別せずに照合し、一致後は入力時の表記を CASE 値として使用します。登録されていないサブスクリプション名は default 分岐となり、Slack へ送信されません。サブスクリプションを追加する場合は、テンプレートと Logic App 定義のサブスクリプション名および Webhook URL パラメーター、Switch 式、CASE を1組追加してください。
 
 Webhook URL は、対応する `multi-subscription-*-template.parameters.json` の `subscription1SlackWebhookUrl` と `subscription2SlackWebhookUrl` の `value` を編集して設定できます。`string` の値はデプロイ履歴やリソース定義を閲覧できるユーザーから参照される可能性があるため、リソースグループと Logic App の RBAC を必要最小限に制限してください。
 

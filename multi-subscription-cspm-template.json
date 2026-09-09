@@ -96,14 +96,17 @@
               "type": "Object",
               "defaultValue": {}
             },
+            "subscription1Name": {
+              "type": "String"
+            },
+            "subscription2Name": {
+              "type": "String"
+            },
             "subscription1SlackWebhookUrl": {
               "type": "String"
             },
             "subscription2SlackWebhookUrl": {
               "type": "String"
-            },
-            "subscriptionRoutes": {
-              "type": "Object"
             }
           },
           "triggers": {
@@ -264,10 +267,10 @@
             },
             "Route_Recommendation_By_Subscription": {
               "type": "Switch",
-              "expression": "@if(contains(parameters('subscriptionRoutes'), toLower(outputs('Compose_Recommendation_Details')?['subscriptionName'])), parameters('subscriptionRoutes')[toLower(outputs('Compose_Recommendation_Details')?['subscriptionName'])], 'Unknown')",
+              "expression": "@if(equals(toLower(outputs('Compose_Recommendation_Details')?['subscriptionName']), toLower(parameters('subscription1Name'))), parameters('subscription1Name'), if(equals(toLower(outputs('Compose_Recommendation_Details')?['subscriptionName']), toLower(parameters('subscription2Name'))), parameters('subscription2Name'), 'Unknown'))",
               "cases": {
                 "Subscription1": {
-                  "case": "Subscription1",
+                  "case": "@parameters('subscription1Name')",
                   "actions": {
                     "Post_Recommendation_to_Subscription1_Slack": {
                       "type": "Http",
@@ -283,7 +286,7 @@
                   }
                 },
                 "Subscription2": {
-                  "case": "Subscription2",
+                  "case": "@parameters('subscription2Name')",
                   "actions": {
                     "Post_Recommendation_to_Subscription2_Slack": {
                       "type": "Http",
@@ -321,14 +324,17 @@
               }
             }
           },
+          "subscription1Name": {
+            "value": "[parameters('subscription1Name')]"
+          },
+          "subscription2Name": {
+            "value": "[parameters('subscription2Name')]"
+          },
           "subscription1SlackWebhookUrl": {
             "value": "[parameters('subscription1SlackWebhookUrl')]"
           },
           "subscription2SlackWebhookUrl": {
             "value": "[parameters('subscription2SlackWebhookUrl')]"
-          },
-          "subscriptionRoutes": {
-            "value": "[createObject(toLower(parameters('subscription1Name')), 'Subscription1', toLower(parameters('subscription2Name')), 'Subscription2')]"
           }
         }
       },
